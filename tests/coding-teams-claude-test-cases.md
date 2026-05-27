@@ -191,3 +191,93 @@ claude --version
 - Real Claude Code verification is limited to `claude --version` smoke checks.
 - Future task execution tests should use a fake Claude runner that emits deterministic stdout/stderr chunks.
 - Future UI E2E tests should consume seeded task messages rather than invoking a real model.
+
+## Issue #6 Addendum: Daemon One-Shot Registration and Runtime Dashboard
+
+### Functional Tests
+
+#### TC-F-004: Build Daemon Registration Payload From Ready Claude Detection
+
+- **Requirement**: Issue #6 AC: mock Claude detector ready and verify registration payload.
+- **Priority**: High
+- **Preconditions**:
+  - Mock detection result has `provider=claude`, `status=ready`, version `2.0.57`, and coding/filesystem/shell capabilities.
+- **Test Steps**:
+  1. Call `buildDaemonRegistration` with hostname, device info, daemon version, and detection result.
+  2. Inspect daemon metadata and first runtime.
+- **Expected Results**:
+  - Payload daemon metadata includes hostname, device info, and daemon version.
+  - Payload contains one runtime with `provider=claude`, `status=online`, `command=claude`, version, and capabilities.
+- **Postconditions**: No real Claude model call is made.
+
+#### TC-F-005: Daemon Client Posts Registration To Backend
+
+- **Requirement**: Issue #6 AC: mock fetch and verify daemon sends correct JSON to `/api/daemon/register`.
+- **Priority**: High
+- **Preconditions**:
+  - Mock detector returns ready Claude detection.
+  - Mock fetch records URL, method, headers, and body.
+- **Test Steps**:
+  1. Call `registerClaudeRuntime` with mock detector and mock fetch.
+  2. Inspect recorded request.
+  3. Inspect returned registration response.
+- **Expected Results**:
+  - Request URL is `<serverUrl>/api/daemon/register`.
+  - Request method is `POST`.
+  - Request body contains daemon metadata and online Claude runtime.
+  - Function returns parsed backend JSON response.
+- **Postconditions**: No network call is made in automated tests.
+
+#### TC-F-006: Runtime Dashboard Fetches Runtime API
+
+- **Requirement**: Issue #6 AC: backend homepage serves a simple frontend connected to `/api/runtimes`.
+- **Priority**: High
+- **Preconditions**:
+  - Backend app is created in test with an in-memory store.
+- **Test Steps**:
+  1. Request `GET /`.
+  2. Inspect returned HTML.
+- **Expected Results**:
+  - Response status is 200.
+  - Content type is HTML.
+  - HTML includes `Coding Teams Runtime Dashboard`.
+  - HTML includes `runtime-list` container.
+  - HTML includes `fetch('/api/runtimes')`.
+- **Postconditions**: The dashboard can be opened in a browser during local smoke testing.
+
+### Edge Case Tests
+
+#### TC-E-003: Missing Claude Detection Produces No Runtime Registration
+
+- **Requirement**: Issue #6 AC: mock Claude detector missing and ensure no unhandled exception.
+- **Priority**: High
+- **Preconditions**:
+  - Detection result has `status=missing`.
+- **Test Steps**:
+  1. Call `buildDaemonRegistration`.
+  2. Inspect `runtimes`.
+- **Expected Results**:
+  - Payload includes daemon metadata.
+  - Payload has an empty `runtimes` array.
+  - Function does not throw.
+- **Postconditions**: Backend can still record daemon identity without registering unavailable Claude runtime.
+
+### Smoke Tests
+
+#### TC-SMOKE-001: Real Local Claude Code Registers Into Backend
+
+- **Requirement**: Issue #6 local manual smoke.
+- **Priority**: Medium
+- **Preconditions**:
+  - Claude Code is installed locally.
+  - Backend dev server is running.
+- **Test Steps**:
+  1. Run `cd backend && bun run dev`.
+  2. In another terminal run `cd backend && bun run daemon:register`.
+  3. Run `curl -sS http://localhost:3000/api/runtimes`.
+  4. Open `http://localhost:3000`.
+- **Expected Results**:
+  - CLI output includes a registered Claude runtime.
+  - `/api/runtimes` returns a Claude runtime with version.
+  - Dashboard page renders and fetches runtime data.
+- **Postconditions**: Runtime data is in-memory and disappears when backend restarts.

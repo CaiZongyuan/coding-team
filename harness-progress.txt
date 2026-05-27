@@ -10,3 +10,9 @@
 [2026-05-27T14:13:00Z] CHECKPOINT [task-002] step=2/4 TDD Red：新增 backend/tests/claude-runtime.test.ts；`cd backend && bun test` 失败于 Cannot find module '../src/app'，属于预期实现缺口。
 [2026-05-27T14:17:00Z] CHECKPOINT [task-002] step=3/4 TDD Green：实现 backend/src/providers/claude.ts、backend/src/store.ts、backend/src/app.ts 并更新 backend/src/index.ts；`cd backend && bun test` 通过 4 tests，`cd backend && bunx tsc --noEmit` 通过。
 [2026-05-27T14:27:56Z] COMPLETE [task-002]
+[2026-05-27T14:52:17Z] ADD [task-003] issue #6: Claude Code daemon 注册与简单 runtime 前端页
+[2026-05-27T14:52:37Z] CLAIM [task-003] issue #6: Claude Code daemon 注册与简单 runtime 前端页 worker=codex-issue-6 base=2a518e2a626ef3a0b46de38f94c50be29f451493
+[2026-05-27T15:03:00Z] CHECKPOINT [task-003] step=1/4 TDD Red：新增 backend/tests/daemon-register.test.ts；`cd backend && bun test` 失败于 Cannot find module '../src/daemon/register'，属于预期实现缺口。
+[2026-05-27T15:06:00Z] CHECKPOINT [task-003] step=2/4 TDD Green：实现 backend/src/daemon/register.ts、register-cli.ts、runtime dashboard HTML 和 daemon:register script；`cd backend && bun test` 通过 8 tests，`cd backend && bunx tsc --noEmit` 通过。
+[2026-05-27T15:07:00Z] CHECKPOINT [task-003] step=3/4 Smoke：启动 backend 后执行 `cd backend && bun run daemon:register`，真实 `claude --version` 注册 Claude Code 2.0.57；`curl /api/runtimes` 返回 provider=claude runtime。
+[2026-05-27T15:25:40Z] COMPLETE [task-003]
