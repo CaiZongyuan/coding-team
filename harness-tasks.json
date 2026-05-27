@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "created": "2026-05-27T13:11:41Z",
+  "session_config": {
+    "concurrency_mode": "exclusive",
+    "max_tasks_per_session": 20,
+    "max_sessions": 50
+  },
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "补齐 docs 标准 PRD/API/UI Markdown 合同文档",
+      "status": "completed",
+      "priority": "P1",
+      "depends_on": [],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": "e220ae8ad4d07822221fc5685a4481c8ba7200e3",
+      "validation": {
+        "command": "test -f docs/prd/coding-teams.md && test -f docs/api/coding-teams.md && test -f docs/ui/coding-teams.md",
+        "timeout_seconds": 300
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": "2026-05-27T13:24:40Z"
+    }
+  ],
+  "session_count": 0,
+  "last_session": null
+}
