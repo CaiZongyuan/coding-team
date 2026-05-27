@@ -104,6 +104,33 @@
         }
       ],
       "completed_at": "2026-05-27T15:25:40Z"
+    },
+    {
+      "id": "task-004",
+      "title": "issue #8: 补充根目录中文 README 和 .gitignore",
+      "status": "completed",
+      "priority": "P1",
+      "depends_on": [],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": "b6cab6975dab130a02ee98d0be773e844d7f19de",
+      "validation": {
+        "command": "test -f README.md && test -f .gitignore && cd backend && bun test",
+        "timeout_seconds": 300
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [
+        {
+          "step": 1,
+          "total": 2,
+          "description": "新增根目录中文 README.md 和 .gitignore",
+          "timestamp": "2026-05-27T15:36:00Z"
+        }
+      ],
+      "completed_at": "2026-05-27T15:41:16Z"
     }
   ],
   "session_count": 0,

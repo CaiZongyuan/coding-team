@@ -16,3 +16,7 @@
 [2026-05-27T15:06:00Z] CHECKPOINT [task-003] step=2/4 TDD Green：实现 backend/src/daemon/register.ts、register-cli.ts、runtime dashboard HTML 和 daemon:register script；`cd backend && bun test` 通过 8 tests，`cd backend && bunx tsc --noEmit` 通过。
 [2026-05-27T15:07:00Z] CHECKPOINT [task-003] step=3/4 Smoke：启动 backend 后执行 `cd backend && bun run daemon:register`，真实 `claude --version` 注册 Claude Code 2.0.57；`curl /api/runtimes` 返回 provider=claude runtime。
 [2026-05-27T15:25:40Z] COMPLETE [task-003]
+[2026-05-27T15:31:53Z] ADD [task-004] issue #8: 补充根目录中文 README 和 .gitignore
+[2026-05-27T15:32:05Z] CLAIM [task-004] issue #8: 补充根目录中文 README 和 .gitignore worker=codex-issue-8 base=b6cab6975dab130a02ee98d0be773e844d7f19de
+[2026-05-27T15:36:00Z] CHECKPOINT [task-004] step=1/2 新增根目录中文 README.md 和 .gitignore；README 说明当前能力、快速开始、测试、Harness/GitHub-first 流程和限制；.gitignore 忽略本地临时项与未纳入父仓库的 apps/web。
+[2026-05-27T15:41:16Z] COMPLETE [task-004]
