@@ -1,0 +1,23 @@
+approval_policy = "never"
+
+# Sandbox / permissions
+# - `sandbox_workspace_write.network_access` controls whether subprocesses can reach the internet at all.
+# - `[permissions.network]` further constrains subprocess traffic via Codex's managed proxy.
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+
+[permissions.network]
+enabled = true
+mode = "limited"
+allowed_domains = [
+  "api.github.com",
+  "codeload.github.com",
+  "files.pythonhosted.org",
+  "github.com",
+  "objects.githubusercontent.com",
+  "pypi.org",
+  "raw.githubusercontent.com",
+  "registry.npmjs.org",
+]
