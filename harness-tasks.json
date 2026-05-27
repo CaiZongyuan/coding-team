@@ -65,6 +65,45 @@
         }
       ],
       "completed_at": "2026-05-27T14:27:56Z"
+    },
+    {
+      "id": "task-003",
+      "title": "issue #6: Claude Code daemon 注册与简单 runtime 前端页",
+      "status": "completed",
+      "priority": "P1",
+      "depends_on": [],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": "2a518e2a626ef3a0b46de38f94c50be29f451493",
+      "validation": {
+        "command": "cd backend && bun test",
+        "timeout_seconds": 300
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [
+        {
+          "step": 1,
+          "total": 4,
+          "description": "TDD Red：新增 daemon register 与 dashboard 测试，验证缺少 register 模块导致测试失败",
+          "timestamp": "2026-05-27T15:03:00Z"
+        },
+        {
+          "step": 2,
+          "total": 4,
+          "description": "TDD Green：实现 daemon one-shot register、CLI script 与 runtime dashboard",
+          "timestamp": "2026-05-27T15:06:00Z"
+        },
+        {
+          "step": 3,
+          "total": 4,
+          "description": "Smoke：真实 claude --version 注册到本地 backend，/api/runtimes 返回 Claude runtime",
+          "timestamp": "2026-05-27T15:07:00Z"
+        }
+      ],
+      "completed_at": "2026-05-27T15:25:40Z"
     }
   ],
   "session_count": 0,
