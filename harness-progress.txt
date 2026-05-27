@@ -4,3 +4,9 @@
 [2026-05-27T13:31:00Z] CHECKPOINT [task-001] 已生成 docs/prd/coding-teams.md、docs/api/coding-teams.md、docs/ui/coding-teams.md，进入验证。
 [2026-05-27T13:14:55Z] CLAIM [task-001] 补齐 docs 标准 PRD/API/UI Markdown 合同文档 worker=codex-product-requirements base=e220ae8ad4d07822221fc5685a4481c8ba7200e3
 [2026-05-27T13:24:40Z] COMPLETE [task-001]
+[2026-05-27T14:06:19Z] ADD [task-002] issue #4: Claude Code runtime detection 与 daemon registration API
+[2026-05-27T14:06:39Z] CLAIM [task-002] issue #4: Claude Code runtime detection 与 daemon registration API worker=codex-issue-4 base=74872ed6975fd61f3cec382a2f5e58bab7ff8446
+[2026-05-27T14:10:00Z] CHECKPOINT [task-002] step=1/4 已完成测试策略确认：自动化测试 mock Claude command runner，不依赖真实 Claude 登录/模型调用；本机 smoke `claude --version` 返回 2.0.57 (Claude Code)。已生成 tests/coding-teams-claude-test-cases.md。
+[2026-05-27T14:13:00Z] CHECKPOINT [task-002] step=2/4 TDD Red：新增 backend/tests/claude-runtime.test.ts；`cd backend && bun test` 失败于 Cannot find module '../src/app'，属于预期实现缺口。
+[2026-05-27T14:17:00Z] CHECKPOINT [task-002] step=3/4 TDD Green：实现 backend/src/providers/claude.ts、backend/src/store.ts、backend/src/app.ts 并更新 backend/src/index.ts；`cd backend && bun test` 通过 4 tests，`cd backend && bunx tsc --noEmit` 通过。
+[2026-05-27T14:27:56Z] COMPLETE [task-002]
