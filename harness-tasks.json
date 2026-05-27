@@ -26,6 +26,45 @@
       "error_log": [],
       "checkpoints": [],
       "completed_at": "2026-05-27T13:24:40Z"
+    },
+    {
+      "id": "task-002",
+      "title": "issue #4: Claude Code runtime detection 与 daemon registration API",
+      "status": "completed",
+      "priority": "P1",
+      "depends_on": [],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": "74872ed6975fd61f3cec382a2f5e58bab7ff8446",
+      "validation": {
+        "command": "cd backend && bun test",
+        "timeout_seconds": 300
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [
+        {
+          "step": 1,
+          "total": 4,
+          "description": "生成 Claude Code 测试用例文档并确认自动化测试使用 mock command runner",
+          "timestamp": "2026-05-27T14:10:00Z"
+        },
+        {
+          "step": 2,
+          "total": 4,
+          "description": "TDD Red：新增 backend/tests/claude-runtime.test.ts，验证缺少 app/provider/store 实现导致测试失败",
+          "timestamp": "2026-05-27T14:13:00Z"
+        },
+        {
+          "step": 3,
+          "total": 4,
+          "description": "TDD Green：实现 Claude detector、内存 store 与 daemon registration/runtime list API，bun test 与 tsc 通过",
+          "timestamp": "2026-05-27T14:17:00Z"
+        }
+      ],
+      "completed_at": "2026-05-27T14:27:56Z"
     }
   ],
   "session_count": 0,
