@@ -37,9 +37,9 @@ TypeScript monorepo，Bun runtime：
 
 - `backend/` — Hono API server + daemon 逻辑（当前唯一实现目录）
 - `apps/web/` — TanStack Start Web UI（独立 git repo，暂不并入父仓库）
-- `docs/` — PRD、API、UI 合同文档
-- `tests/` — 测试用例文档（`tests/<feature>-test-cases.md`）
-- `.codex/skills/` — 操作模板（bash/prompt 模板），不承载规则
+- `docs/` — 系统级文档（架构、API 合同）
+- `.claude/skills/` — Claude Code 操作 skills
+- `.codex/skills/` — Codex 遗留 skills（harness 等）
 
 当前 `backend/` 内部结构：
 
@@ -49,14 +49,30 @@ backend/
     app.ts              # Hono 路由与 dashboard
     index.ts            # 入口
     store.ts            # 内存 runtime store
+    task-store.ts       # Task queue 实现
+    message-store.ts    # Message stream 实现
     providers/
       claude.ts         # Claude Code detection
+    agent/
+      types.ts          # Agent 类型定义
+      claude-backend.ts # Claude CLI spawn + stream-json 解析
     daemon/
       register.ts       # daemon 注册逻辑
-      register-cli.ts   # CLI 入口
+      register-cli.ts   # daemon:register CLI 入口
+      client.ts         # Daemon HTTP Client
+      executor.ts       # 任务执行循环（claim → execute → report）
+      start-cli.ts      # daemon:start CLI 入口
   tests/
     claude-runtime.test.ts
     daemon-register.test.ts
+    task-queue.test.ts
+    task-message.test.ts
+    agent/
+      claude-backend.test.ts
+      claude-executor.test.ts
+    daemon/
+      client.test.ts
+      executor.test.ts
 ```
 
 ## Hard Rules
@@ -72,19 +88,19 @@ backend/
 - 分支命名：`issue-<N>`
 - PR 必须包含：中文摘要、测试命令与结果、`Closes #<N>`
 - Issue 关闭前，body 里的 Acceptance Criteria 必须全部 `- [x]`
+- **用户反馈 bug → 自动建 issue** — 交付后用户报告 bug 时，分析根因后用 `gh issue create` 建一个 bug issue（label: `bug`），包含：复现步骤、根因分析、修复方案、TC-ID。建完 issue 后按标准 TDD 流程修复。
 
 **验证**：`gh issue view $N` 检查 body 里的 `- [ ]` 是否全部变为 `- [x]`。有未勾选的 AC = 不允许关闭。
 
-### 2. Docs as Contract（需求 → 测试 → 实现，严格这个顺序）
+### 2. Issue as Contract（需求 → 测试 → 实现，严格这个顺序）
 
-需求变更必须按以下顺序产出文件，**不可跳步，不可合并为一个 commit**：
+PRD、验收标准、测试用例（TC-ID）全部写在 **GitHub Issue body** 中，不再产出本地文档文件。实现顺序：
 
-1. `docs/prd/<feature>.md` / `docs/api/<feature>.md` / `docs/ui/<feature>.md`
-2. `tests/<feature>-test-cases.md`
-3. `backend/tests/*.test.ts`（Red commit）
-4. `backend/src/**/*.ts`（Green commit）
+1. **GitHub Issue**：包含完整的 PRD + 验收标准 + TC-ID（用 `/create-issue` 或 `/product-requirements` 生成）
+2. `backend/tests/*.test.ts`（Red commit）— 每个 TC-ID 对应一个 `describe('TC-XXX: ...')`
+3. `backend/src/**/*.ts`（Green commit）
 
-**验证**：每个阶段独立 commit。git log 必须能看出先后顺序。
+**验证**：每个阶段独立 commit。git log 必须能看出先后顺序。Issue 关闭前 body 里的 Acceptance Criteria 必须全部 `- [x]`。
 
 ### 3. TDD（分两个 commit，由 pre-commit hook 强制）
 
@@ -108,11 +124,9 @@ fi
 
 **豁免**：初始化/脚手架 commit（无已有测试框架时）可以跳过，但 commit message 必须以 `init:` 开头。
 
-### 4. 测试覆盖（test-cases 文档 = 契约，必须全部有对应 `it()`）
+### 4. 测试覆盖（Issue 中的 TC-ID = 契约，必须全部有对应 `it()`）
 
-`tests/<feature>-test-cases.md` 里声明的每个 TC-ID，必须在 `backend/tests/` 的某个 `.test.ts` 文件里有对应的测试。
-
-Coverage Matrix 的状态只有三种：
+GitHub Issue body 中声明的每个 TC-ID，必须在 `backend/tests/` 的某个 `.test.ts` 文件里有对应的测试。
 
 | 状态 | 含义 | 要求 |
 |------|------|------|
@@ -122,7 +136,7 @@ Coverage Matrix 的状态只有三种：
 
 **禁止自评造假**：如果 Coverage Matrix 标注 `Complete` 但实际没有对应的 `it()`，等同于违反 Hard Rule。
 
-**验证**：`backend/scripts/check-test-coverage.sh` 比对 TC-ID 与实际测试。CI 跑这个脚本。
+**验证**：Issue 关闭前检查所有 TC-ID 是否有对应测试。
 
 ### 5. 安全防线
 
@@ -143,6 +157,7 @@ Coverage Matrix 的状态只有三种：
 # 开发
 cd backend && bun run dev                # 启动 backend dev server
 cd backend && bun run daemon:register    # 手动触发 daemon 注册
+cd backend && bun run daemon:start       # 启动 daemon（探测→注册→执行循环）
 
 # 测试
 cd backend && bun test                   # 跑全部测试
@@ -197,7 +212,7 @@ describe('TC-F-003: upsert existing Claude runtime', () => {
 })
 ```
 
-把 TC-ID 放在 `describe` 里，方便 `check-test-coverage.sh` 提取和比对。
+把 TC-ID 放在 `describe` 里，方便比对 Issue 中的测试用例与实际测试。
 
 ### API Contract Testing
 
@@ -226,18 +241,20 @@ describe('TC-F-003: upsert existing Claude runtime', () => {
 2. 读 task 的 `checkpoints` 确定最后完成的步骤
 3. 跑 `validation.command`：通过 → `complete`；失败 → `git reset --hard <started_at_commit>` 并 `fail`
 
-## Docs as Contract（文件即合同）
+## Issue as Contract（Issue 即合同）
 
-| 文件 | 用途 | 何时产出 |
-|------|------|---------|
-| `docs/prd/<feature>.md` | 产品需求 | issue 创建前或同步 |
-| `docs/api/<feature>.md` | API 契约 | 实现前 |
-| `docs/ui/<feature>.md` | UI 规范 | 实现前（可选） |
-| `tests/<feature>-test-cases.md` | 测试用例文档 | TDD Red 之前 |
-| `backend/tests/*.test.ts` | 自动化测试 | TDD Red |
-| `backend/src/**/*.ts` | 实现 | TDD Green |
+PRD、验收标准、测试用例（TC-ID）不再产出本地文件，全部存放在 **GitHub Issue body** 中。
 
-**关键**：`tests/<feature>-test-cases.md` 是 QA 契约。它的每一个 TC-ID 都必须有对应的自动化测试。没有"标注 Complete 但实际没测"这种情况。
+| 内容 | 存放位置 | 何时产出 |
+|------|---------|---------|
+| PRD + 验收标准 + TC-ID | GitHub Issue body | `/create-issue` 或 `/product-requirements` |
+| 系统架构文档 | `docs/architecture.md` | 项目级别，不频繁变更 |
+| API 系统合同 | `docs/api/coding-teams.md` | 项目级别，不频繁变更 |
+| 学习文档 | `docs/learning/` | 按需创建 |
+| 自动化测试 | `backend/tests/*.test.ts` | TDD Red |
+| 实现 | `backend/src/**/*.ts` | TDD Green |
+
+**关键**：Issue body 中的每一个 TC-ID 都必须有对应的自动化测试。Issue 关闭前所有验收标准必须 `- [x]`。
 
 ## Multi-agent + Worktree
 
@@ -245,8 +262,8 @@ describe('TC-F-003: upsert existing Claude runtime', () => {
 
 | 角色 | 职责 | 允许改的文件 |
 |------|------|-------------|
-| `po` | 需求、PRD、API 契约 | `docs/prd\|api\|ui/*` |
-| `qa` | 测试用例文档 + 测试代码 | `tests/*-test-cases.md`、`backend/tests/` |
+| `po` | 需求、Issue 内容 | GitHub Issue body（通过 `/create-issue`） |
+| `qa` | 测试代码 | `backend/tests/` |
 | `implementer` | 最小实现 | `backend/src/` |
 | `reviewer` | 审查，列问题清单 | 不改代码，只写评论 |
 | `verifier` | 跑验证，给放行/阻塞结论 | 不改代码，只跑命令 |
@@ -276,19 +293,19 @@ describe('TC-F-003: upsert existing Claude runtime', () => {
 - commit subject 保留英文 conventional 前缀，body 使用中文描述变更内容
 - 代码注释使用中文（帮助学习理解），变量名/函数名保持英文
 
-## .codex/skills/ Reference
+## .claude/skills/ Reference
 
-`.codex/skills/` 下只存放**操作模板**（bash 命令、prompt 模板、参考文档）。规则全部收敛在本文件。
+`.claude/skills/` 下存放 Claude Code 操作 skills，通过 `/skill-name` 调用。
 
-| 目录 | 用途 |
-|------|------|
-| `harness/` | harness.py CLI + 进度管理模板 |
-| `tdd/` | TDD 操作流程模板（规则的强制力在 CLAUDE.md + pre-commit hook） |
-| `test-cases/` | 测试用例文档生成模板 |
-| `product-requirements/` | PRD/API/UI 文档生成模板 |
-| `gh-create-issue/` | 从 PRD 创建 issue 的 bash 模板 |
-| `gh-issue-implement/` | issue → 分支 → PR 的流水线模板 |
-| `gh-pr-review/` | PR review 与合并的流水线模板 |
+| Skill | 用途 | 调用方式 |
+|-------|------|---------|
+| `create-issue` | 从需求生成 GitHub issue（含 PRD + TC-ID） | `/create-issue` |
+| `implement-issue` | 从 issue 读取需求，TDD 实现，创建 PR | `/implement-issue 123` |
+| `review-pr` | PR 审查、修复、合并 | `/review-pr 456` |
+| `tdd` | 严格的 Red/Green/Refactor 循环 | `/tdd` |
+| `product-requirements` | 需求澄清与质量评分 | `/product-requirements` |
+
+`.codex/skills/` 保留 harness 等遗留工具，新功能全部使用 `.claude/skills/`。
 
 ## Repo Setup
 
