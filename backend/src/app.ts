@@ -9,6 +9,14 @@ import {
   type RuntimeStore,
 } from './store'
 import {
+  createMemoryMessageStore,
+  MessageConflictError,
+  MessageTaskNotFoundError,
+  TaskNotRunningError,
+  type InputMessage,
+  type MessageStore,
+} from './message-store'
+import {
   createMemoryTaskStore,
   InvalidTransitionError,
   TaskNotFoundError,
@@ -22,6 +30,7 @@ import {
 type CreateAppOptions = {
   store?: RuntimeStore
   taskStore?: TaskStore
+  messageStore?: MessageStore
 }
 
 type ValidationErrorBody = {
@@ -35,6 +44,11 @@ type ValidationErrorBody = {
 export function createApp(options: CreateAppOptions = {}) {
   const store = options.store ?? createMemoryStore()
   const taskStore = options.taskStore ?? createMemoryTaskStore()
+  const messageStore = options.messageStore ?? createMemoryMessageStore((taskId) => {
+    const task = taskStore.getTask(taskId)
+    if (!task) return { exists: false }
+    return { exists: true, status: task.status }
+  })
   const app = new Hono()
 
   // --- Dashboard ---
@@ -202,6 +216,65 @@ export function createApp(options: CreateAppOptions = {}) {
     } catch (error) {
       return handleTaskError(error, c)
     }
+  })
+
+  // --- Task Message API ---
+
+  // Append messages
+  app.post('/api/daemon/tasks/:id/messages', async (c) => {
+    let payload: unknown
+    try {
+      payload = await c.req.json()
+    } catch {
+      return c.json(validationError(['body must be valid JSON']), 400)
+    }
+
+    if (!isRecord(payload) || !Array.isArray(payload.messages)) {
+      return c.json(validationError(['messages array is required']), 400)
+    }
+
+    const taskId = c.req.param('id')
+    const messages = (payload.messages as Array<Record<string, unknown>>).map(
+      (msg): InputMessage => ({
+        seq: msg.seq as number,
+        type: msg.type as InputMessage['type'],
+        content: typeof msg.content === 'string' ? msg.content : undefined,
+        tool: typeof msg.tool === 'string' ? msg.tool : undefined,
+        input: msg.input,
+        output: typeof msg.output === 'string' ? msg.output : undefined,
+      }),
+    )
+
+    try {
+      const result = messageStore.appendMessages(taskId, messages)
+      // 200 for idempotent (inserted=0), 201 for new insertions
+      return c.json(result, result.inserted > 0 ? 201 : 200)
+    } catch (error) {
+      if (error instanceof MessageTaskNotFoundError) {
+        return c.json({ error: { code: 'NOT_FOUND', message: error.message } }, 404)
+      }
+      if (error instanceof TaskNotRunningError) {
+        return c.json({ error: { code: 'CONFLICT', message: error.message } }, 409)
+      }
+      if (error instanceof MessageConflictError) {
+        return c.json({ error: { code: 'CONFLICT', message: error.message } }, 409)
+      }
+      throw error
+    }
+  })
+
+  // Get messages
+  app.get('/api/tasks/:id/messages', (c) => {
+    const taskId = c.req.param('id')
+    const task = taskStore.getTask(taskId)
+    if (!task) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Task not found' } }, 404)
+    }
+
+    const afterSeqStr = c.req.query('afterSeq')
+    const afterSeq = afterSeqStr ? parseInt(afterSeqStr, 10) : 0
+    const messages = messageStore.listMessages(taskId, { afterSeq: isNaN(afterSeq) ? 0 : afterSeq })
+    return c.json({ messages })
   })
 
   return app
