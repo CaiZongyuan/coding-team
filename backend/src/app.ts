@@ -8,9 +8,20 @@ import {
   type RuntimeStatus,
   type RuntimeStore,
 } from './store'
+import {
+  createMemoryTaskStore,
+  InvalidTransitionError,
+  TaskNotFoundError,
+  type TaskStore,
+} from './task-store'
+
+// ---------------------------------------------------------------------------
+// App factory
+// ---------------------------------------------------------------------------
 
 type CreateAppOptions = {
   store?: RuntimeStore
+  taskStore?: TaskStore
 }
 
 type ValidationErrorBody = {
@@ -23,14 +34,18 @@ type ValidationErrorBody = {
 
 export function createApp(options: CreateAppOptions = {}) {
   const store = options.store ?? createMemoryStore()
+  const taskStore = options.taskStore ?? createMemoryTaskStore()
   const app = new Hono()
 
+  // --- Dashboard ---
   app.get('/', (c) => c.html(runtimeDashboardHtml()))
 
+  // --- Runtime API ---
   app.get('/api/runtimes', (c) => {
     return c.json({ runtimes: store.listRuntimes() })
   })
 
+  // --- Daemon Registration ---
   app.post('/api/daemon/register', async (c) => {
     let payload: unknown
 
@@ -48,8 +63,167 @@ export function createApp(options: CreateAppOptions = {}) {
     return c.json(store.registerDaemon(validation.value))
   })
 
+  // --- Task API ---
+
+  // Create task
+  app.post('/api/tasks', async (c) => {
+    let payload: unknown
+    try {
+      payload = await c.req.json()
+    } catch {
+      return c.json(validationError(['body must be valid JSON']), 400)
+    }
+
+    if (!isRecord(payload) || typeof payload.title !== 'string' || payload.title.trim().length === 0) {
+      return c.json(validationError(['title is required']), 400)
+    }
+
+    const task = taskStore.createTask({
+      title: payload.title as string,
+      description: typeof payload.description === 'string' ? payload.description : '',
+      priority: typeof payload.priority === 'number' ? payload.priority : undefined,
+    })
+
+    return c.json({ task }, 201)
+  })
+
+  // List tasks
+  app.get('/api/tasks', (c) => {
+    const status = c.req.query('status') as string | undefined
+    const result = taskStore.listTasks(
+      status ? { status: status as any } : undefined,
+    )
+    return c.json(result)
+  })
+
+  // Get task by ID
+  app.get('/api/tasks/:id', (c) => {
+    const task = taskStore.getTask(c.req.param('id'))
+    if (!task) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Task not found' } }, 404)
+    }
+    return c.json({ task })
+  })
+
+  // Cancel task
+  app.post('/api/tasks/:id/cancel', (c) => {
+    try {
+      const task = taskStore.cancelTask(c.req.param('id'))
+      return c.json({ task }, 202)
+    } catch (error) {
+      return handleTaskError(error, c)
+    }
+  })
+
+  // --- Daemon Task API ---
+
+  // Claim task
+  app.post('/api/daemon/tasks/claim', async (c) => {
+    let payload: unknown
+    try {
+      payload = await c.req.json()
+    } catch {
+      return c.json(validationError(['body must be valid JSON']), 400)
+    }
+
+    if (!isRecord(payload)) {
+      return c.json(validationError(['body must be an object']), 400)
+    }
+
+    const daemonId = payload.daemonId
+    const runtimeId = payload.runtimeId
+    if (typeof daemonId !== 'string' || typeof runtimeId !== 'string') {
+      return c.json(validationError(['daemonId and runtimeId are required']), 400)
+    }
+
+    const task = taskStore.claimTask({ daemonId, runtimeId })
+    if (!task) {
+      return new Response(null, { status: 204 })
+    }
+    return c.json({ task })
+  })
+
+  // Start task
+  app.post('/api/daemon/tasks/:id/start', async (c) => {
+    let payload: unknown
+    try {
+      payload = await c.req.json()
+    } catch {
+      return c.json(validationError(['body must be valid JSON']), 400)
+    }
+
+    if (!isRecord(payload)) {
+      return c.json(validationError(['body must be an object']), 400)
+    }
+
+    try {
+      const task = taskStore.startTask(c.req.param('id'), {
+        daemonId: payload.daemonId as string,
+        runtimeId: payload.runtimeId as string,
+        startedAt: typeof payload.startedAt === 'string' ? payload.startedAt : undefined,
+      })
+      return c.json({ task })
+    } catch (error) {
+      return handleTaskError(error, c)
+    }
+  })
+
+  // Report result
+  app.post('/api/daemon/tasks/:id/result', async (c) => {
+    let payload: unknown
+    try {
+      payload = await c.req.json()
+    } catch {
+      return c.json(validationError(['body must be valid JSON']), 400)
+    }
+
+    if (!isRecord(payload) || (payload.status !== 'completed' && payload.status !== 'failed')) {
+      return c.json(validationError(['status must be completed or failed']), 400)
+    }
+
+    try {
+      const task = taskStore.updateTaskResult(
+        c.req.param('id'),
+        payload.status === 'completed'
+          ? { status: 'completed', result: typeof payload.result === 'string' ? payload.result : undefined }
+          : { status: 'failed', error: typeof payload.error === 'string' ? payload.error : undefined },
+      )
+      return c.json({ task })
+    } catch (error) {
+      return handleTaskError(error, c)
+    }
+  })
+
+  // Heartbeat
+  app.post('/api/daemon/tasks/:id/heartbeat', (c) => {
+    try {
+      taskStore.updateHeartbeat(c.req.param('id'))
+      return new Response(null, { status: 204 })
+    } catch (error) {
+      return handleTaskError(error, c)
+    }
+  })
+
   return app
 }
+
+// ---------------------------------------------------------------------------
+// Error handling helper
+// ---------------------------------------------------------------------------
+
+function handleTaskError(error: unknown, c: { json: (body: unknown, status: number) => Response }) {
+  if (error instanceof TaskNotFoundError) {
+    return c.json({ error: { code: 'NOT_FOUND', message: error.message } }, 404)
+  }
+  if (error instanceof InvalidTransitionError) {
+    return c.json({ error: { code: 'CONFLICT', message: error.message } }, 409)
+  }
+  throw error
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard HTML
+// ---------------------------------------------------------------------------
 
 function runtimeDashboardHtml(): string {
   return `<!doctype html>
@@ -92,6 +266,12 @@ function runtimeDashboardHtml(): string {
         font-weight: 700;
       }
 
+      h2 {
+        margin: 24px 0 12px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
       button {
         border: 1px solid #c7d1e0;
         background: #ffffff;
@@ -107,6 +287,7 @@ function runtimeDashboardHtml(): string {
         border-collapse: collapse;
         background: #ffffff;
         border: 1px solid #d9e1ec;
+        margin-bottom: 24px;
       }
 
       th,
@@ -141,6 +322,22 @@ function runtimeDashboardHtml(): string {
         background: #168a48;
       }
 
+      .status.running::before {
+        background: #2563eb;
+      }
+
+      .status.completed::before {
+        background: #168a48;
+      }
+
+      .status.failed::before {
+        background: #dc2626;
+      }
+
+      .status.cancelled::before {
+        background: #d97706;
+      }
+
       .empty,
       .error {
         padding: 18px;
@@ -158,14 +355,17 @@ function runtimeDashboardHtml(): string {
     <main>
       <header>
         <div>
-          <h1>Coding Teams Runtime Dashboard</h1>
+          <h1>Coding Teams Dashboard</h1>
         </div>
         <button type="button" id="refresh">刷新</button>
       </header>
       <section id="runtime-list" aria-live="polite"></section>
+      <h2>Tasks</h2>
+      <section id="task-list" aria-live="polite"></section>
     </main>
     <script>
       const runtimeList = document.getElementById('runtime-list')
+      const taskList = document.getElementById('task-list')
       const refreshButton = document.getElementById('refresh')
 
       async function loadRuntimes() {
@@ -183,6 +383,7 @@ function runtimeDashboardHtml(): string {
           }
 
           runtimeList.innerHTML =
+            '<h2>Runtimes</h2>' +
             '<table><thead><tr><th>Provider</th><th>Name</th><th>Status</th><th>Version</th><th>Last Seen</th></tr></thead><tbody>' +
             runtimes.map((runtime) => {
               const status = runtime.status || 'offline'
@@ -200,6 +401,37 @@ function runtimeDashboardHtml(): string {
         }
       }
 
+      async function loadTasks() {
+        taskList.innerHTML = '<div class="empty">加载 tasks...</div>'
+
+        try {
+          const response = await fetch('/api/tasks')
+          if (!response.ok) throw new Error('HTTP ' + response.status)
+          const data = await response.json()
+          const tasks = data.tasks || []
+
+          if (tasks.length === 0) {
+            taskList.innerHTML = '<div class="empty">还没有任务。</div>'
+            return
+          }
+
+          taskList.innerHTML =
+            '<table><thead><tr><th>Status</th><th>Title</th><th>Priority</th><th>Created</th></tr></thead><tbody>' +
+            tasks.map((task) => {
+              const status = task.status || 'queued'
+              return '<tr>' +
+                '<td><span class="status ' + escapeHtml(status) + '">' + escapeHtml(status) + '</span></td>' +
+                '<td>' + escapeHtml(task.title || '') + '</td>' +
+                '<td>' + (task.priority ?? '') + '</td>' +
+                '<td>' + escapeHtml(task.createdAt || '') + '</td>' +
+              '</tr>'
+            }).join('') +
+            '</tbody></table>'
+        } catch (error) {
+          taskList.innerHTML = '<div class="error">加载任务失败，请稍后重试。</div>'
+        }
+      }
+
       function escapeHtml(value) {
         return String(value)
           .replaceAll('&', '&amp;')
@@ -209,18 +441,26 @@ function runtimeDashboardHtml(): string {
           .replaceAll("'", '&#039;')
       }
 
-      refreshButton.addEventListener('click', loadRuntimes)
+      refreshButton.addEventListener('click', () => {
+        loadRuntimes()
+        loadTasks()
+      })
       loadRuntimes()
+      loadTasks()
     </script>
   </body>
 </html>`
 }
 
+// ---------------------------------------------------------------------------
+// Validation helpers
+// ---------------------------------------------------------------------------
+
 function validationError(errors: string[]): ValidationErrorBody {
   return {
     error: {
       code: 'VALIDATION_ERROR',
-      message: `Invalid daemon registration payload: ${errors.join('; ')}`,
+      message: `Validation failed: ${errors.join('; ')}`,
       details: { errors },
     },
   }
