@@ -10,7 +10,7 @@
  * 3. parseStreamJsonLine() 逐行解析 stdout JSONL
  * 4. spawnClaude() 执行完整流程（spawn → parse → result）
  */
-import type { AgentMessage, ExecOptions } from './types'
+import type { AgentMessage, AgentResult, ExecOptions } from './types'
 
 // ─── 参数构建 ───
 
@@ -203,16 +203,16 @@ function parseResultMessage(raw: ClaudeRawMessage): AgentMessage[] {
  * 构建子进程环境变量，过滤掉 CLAUDECODE_ 前缀避免嵌套干扰
  * 对应 Multica claude.go 的 isFilteredChildEnvKey + buildEnv
  */
-export function buildEnv(extra: Record<string, string> = {}): string[] {
-  const env: string[] = []
+export function buildEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
     if (value === undefined) continue
     if (isFilteredEnvKey(key)) continue
-    env.push(`${key}=${value}`)
+    env[key] = value
   }
   for (const [key, value] of Object.entries(extra)) {
     if (isFilteredEnvKey(key)) continue
-    env.push(`${key}=${value}`)
+    env[key] = value
   }
   return env
 }
@@ -221,4 +221,236 @@ function isFilteredEnvKey(key: string): boolean {
   return key === 'CLAUDECODE'
     || key.startsWith('CLAUDECODE_')
     || key.startsWith('CLAUDE_CODE_')
+}
+
+// ─── spawn 执行 ───
+
+/**
+ * Bun.spawn 返回的 stdin 类型（FileSink）
+ * 不是标准 WritableStream，API 是 write() + end()
+ */
+export type FileSinkLike = {
+  write(data: Uint8Array): void
+  end(): void
+}
+
+/**
+ * 可注入的 spawn 实现，方便测试
+ * stdin 类型匹配 Bun.spawn 返回的 FileSink
+ */
+export type SpawnFn = (command: string, args: string[], options: {
+  cwd?: string
+  env: Record<string, string>
+  stdin: 'pipe'
+  stdout: 'pipe'
+  stderr: 'pipe'
+}) => {
+  stdin: FileSinkLike
+  stdout: ReadableStream<Uint8Array>
+  stderr: ReadableStream<Uint8Array>
+  exited: Promise<number>
+  kill(signal?: string): void
+}
+
+/**
+ * 创建 spawnClaude 执行器
+ *
+ * 返回一个符合 AgentExecutor 签名的函数：
+ *   (prompt: string) => AsyncGenerator<AgentMessage, AgentResult>
+ *
+ * 流程：
+ * 1. Bun.spawn 启动 claude CLI
+ * 2. 通过 stdin 写入 prompt
+ * 3. 逐行读取 stdout JSONL
+ * 4. 每行用 parseStreamJsonLine() 解析，yield 消息
+ * 5. result 类型消息特殊处理，提取 AgentResult
+ * 6. 超时或取消时 kill 子进程
+ *
+ * 对应 Multica claude.go 的 execute() + streamOutput()
+ */
+export function createClaudeExecutor(opts: {
+  execOptions?: Partial<ExecOptions>
+  spawnImpl?: SpawnFn
+} = {}) {
+  const spawnFn = opts.spawnImpl ?? ((cmd, args, opt) => Bun.spawn([cmd, ...args], opt as any))
+
+  return async function* spawnClaude(
+    prompt: string,
+  ): AsyncGenerator<AgentMessage, AgentResult> {
+    const startTime = Date.now()
+    const args = buildClaudeArgs(opts.execOptions ?? {})
+
+    const proc = spawnFn('claude', args, {
+      cwd: opts.execOptions?.cwd,
+      env: buildEnv(),
+      stdin: 'pipe',
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+
+    // 写入 prompt 到 stdin，然后关闭
+    // Bun.spawn 的 stdin 是 FileSink，API 是 write() + end()
+    const input = buildClaudeInput(prompt)
+    proc.stdin!.write(input)
+    proc.stdin!.end()
+
+    // 超时控制
+    const timeoutMs = opts.execOptions?.timeout ?? 20 * 60 * 1000 // 默认 20 分钟
+    let timedOut = false
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined
+
+    const timeoutPromise = new Promise<void>((resolve) => {
+      timeoutTimer = setTimeout(() => {
+        timedOut = true
+        proc.kill('SIGTERM')
+        resolve()
+      }, timeoutMs)
+    })
+
+    // 收集最终 result 数据
+    let resultOutput = ''
+    let resultIsError = false
+    let resultSessionId: string | undefined
+    let resultDurationMs = 0
+    let resultUsage: Record<string, AgentResult['usage'][string]> = {}
+
+    // 累积所有 text 消息作为 output
+    let accumulatedOutput = ''
+
+    try {
+      const decoder = new TextDecoder()
+      const reader = proc.stdout.getReader()
+      let buffer = ''
+
+      try {
+        while (true) {
+          const readResult = await Promise.race([
+            reader.read() as Promise<{ done: boolean; value?: Uint8Array }>,
+            timeoutPromise.then(() => ({ done: true, value: undefined })),
+          ])
+
+          if (readResult.done) break
+
+          const chunk = readResult.value
+          if (!chunk) continue
+
+          buffer += decoder.decode(chunk, { stream: true })
+
+          // 按换行符分割处理完整行
+          let newlineIdx: number
+          while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+            const line = buffer.substring(0, newlineIdx)
+            buffer = buffer.substring(newlineIdx + 1)
+
+            // 处理单行
+            const trimmedLine = line.trim()
+            if (!trimmedLine) continue
+
+            // 尝试提取 result 类型消息
+            let isResultLine = false
+            try {
+              const raw = JSON.parse(trimmedLine)
+              if (raw.type === 'result') {
+                resultOutput = typeof raw.result === 'string' ? raw.result : ''
+                resultIsError = raw.is_error === true
+                resultSessionId = raw.session_id
+                resultDurationMs = raw.duration_ms ?? (Date.now() - startTime)
+                if (raw.modelUsage && typeof raw.modelUsage === 'object') {
+                  for (const [model, usage] of Object.entries(raw.modelUsage as Record<string, any>)) {
+                    resultUsage[model] = {
+                      inputTokens: usage.inputTokens ?? 0,
+                      outputTokens: usage.outputTokens ?? 0,
+                      cacheReadTokens: usage.cacheReadInputTokens ?? 0,
+                      cacheWriteTokens: usage.cacheCreationInputTokens ?? 0,
+                    }
+                  }
+                }
+                isResultLine = true
+              }
+            } catch {
+              // 不是合法 JSON，走 parseStreamJsonLine
+            }
+
+            if (isResultLine) continue // result 行不作为消息 yield
+
+            // 正常消息解析
+            const messages = parseStreamJsonLine(line)
+            for (const msg of messages) {
+              if (msg.type === 'text' && 'content' in msg) {
+                accumulatedOutput += (msg as { type: 'text'; content: string }).content
+              }
+              yield msg
+            }
+          }
+        }
+
+        // 处理缓冲区剩余
+        const remaining = buffer.trim()
+        if (remaining) {
+          const messages = parseStreamJsonLine(remaining)
+          for (const msg of messages) {
+            if (msg.type === 'text' && 'content' in msg) {
+              accumulatedOutput += (msg as { type: 'text'; content: string }).content
+            }
+            yield msg
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+    } catch (error) {
+      // 读取异常（进程被 kill 等）
+    }
+
+    // 等待进程退出
+    const exitCode = await Promise.race([
+      proc.exited,
+      timeoutPromise.then(() => -1),
+    ])
+
+    if (timeoutTimer) clearTimeout(timeoutTimer)
+
+    // 构建 AgentResult
+    if (timedOut) {
+      return {
+        status: 'timeout',
+        output: accumulatedOutput,
+        error: `执行超时（${timeoutMs}ms）`,
+        durationMs: Date.now() - startTime,
+        sessionId: resultSessionId,
+        usage: resultUsage,
+      }
+    }
+
+    const hasResult = resultOutput !== '' || resultSessionId !== undefined
+    if (hasResult) {
+      return {
+        status: resultIsError ? 'failed' : 'completed',
+        output: resultOutput || accumulatedOutput,
+        error: resultIsError ? resultOutput : undefined,
+        durationMs: resultDurationMs || (Date.now() - startTime),
+        sessionId: resultSessionId,
+        usage: resultUsage,
+      }
+    }
+
+    // 没有 result 消息（进程异常退出）
+    if (exitCode !== 0) {
+      return {
+        status: 'failed',
+        output: accumulatedOutput,
+        error: `Claude 进程异常退出（exit code: ${exitCode}）`,
+        durationMs: Date.now() - startTime,
+        usage: {},
+      }
+    }
+
+    // 正常退出但没有 result 消息
+    return {
+      status: 'completed',
+      output: accumulatedOutput,
+      durationMs: Date.now() - startTime,
+      usage: {},
+    }
+  }
 }

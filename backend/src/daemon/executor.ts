@@ -35,6 +35,8 @@ export type ExecutorConfig = {
   maxIterations?: number
   /** 取消信号 */
   signal?: AbortSignal
+  /** 日志回调 */
+  onLog?: (message: string) => void
 }
 
 /**
@@ -51,13 +53,20 @@ export function createExecutor(config: ExecutorConfig) {
     flushInterval = 500,
     maxIterations = Infinity,
     signal,
+    onLog,
   } = config
+
+  const log = onLog ?? (() => {})
 
   async function run(): Promise<void> {
     let iteration = 0
+    log(`轮询开始（间隔 ${claimInterval}ms）`)
 
     while (iteration < maxIterations) {
-      if (signal?.aborted) break
+      if (signal?.aborted) {
+        log('收到取消信号，停止轮询')
+        break
+      }
 
       try {
         const task = await client.claimTask({ daemonId, runtimeId, provider })
@@ -70,9 +79,11 @@ export function createExecutor(config: ExecutorConfig) {
         }
 
         // 有任务，执行
+        log(`领取到任务: ${task.id} — ${task.description.substring(0, 60)}`)
         await handleTask(task)
       } catch (error) {
         // claim 失败，等待后重试
+        log(`claim 失败: ${error instanceof Error ? error.message : String(error)}`)
         await sleep(claimInterval, signal)
       }
 
@@ -95,6 +106,7 @@ export function createExecutor(config: ExecutorConfig) {
     }
 
     // 2. 执行并收集消息
+    log(`开始执行任务 ${taskId}...`)
     const buffer: Array<{ seq: number; type: string; content?: string; tool?: string; input?: unknown; output?: string }> = []
     let seq = 0
     let agentResult: AgentResult = {
@@ -142,6 +154,8 @@ export function createExecutor(config: ExecutorConfig) {
       clearInterval(flushTimer)
     }
 
+    log(`任务 ${taskId} 收到 ${seq} 条消息，状态: ${agentResult.status}`)
+
     // 3. 最终 flush（缓冲区剩余消息）
     await flushMessages(taskId, buffer)
 
@@ -155,8 +169,9 @@ export function createExecutor(config: ExecutorConfig) {
           ? { inputTokens: 0, outputTokens: 0 }
           : undefined,
       })
-    } catch {
-      // result 上报失败记录日志但不影响循环
+      log(`任务 ${taskId} 结果已上报: ${agentResult.status}`)
+    } catch (error) {
+      log(`任务 ${taskId} 结果上报失败: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
