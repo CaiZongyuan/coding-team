@@ -11,7 +11,6 @@ import {
   buildClaudeArgs,
   buildClaudeInput,
   parseStreamJsonLine,
-  type ClaudeStreamMessage,
 } from '../../src/agent/claude-backend'
 
 // ─── TC-F-001: 构建正确的 Claude CLI 参数 ───
