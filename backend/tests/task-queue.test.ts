@@ -19,11 +19,7 @@ async function createTask(
   app: ReturnType<typeof createApp>,
   overrides: Record<string, unknown> = {},
 ) {
-  const body = {
-    title: 'Test task',
-    description: 'A test task description',
-    ...overrides,
-  }
+  const body = { ...overrides }
   const res = await app.request('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

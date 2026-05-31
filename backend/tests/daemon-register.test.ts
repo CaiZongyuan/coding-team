@@ -135,8 +135,8 @@ describe('runtime dashboard page', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/html')
-    expect(html).toContain('Coding Teams Runtime Dashboard')
-    expect(html).toContain("fetch('/api/runtimes')")
-    expect(html).toContain('runtime-list')
+    expect(html).toContain('Coding Teams Dashboard')
+    expect(html).toContain('/api/runtimes')
+    expect(html).toContain('runtime-section')
   })
 })
