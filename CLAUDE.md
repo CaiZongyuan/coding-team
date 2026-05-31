@@ -55,14 +55,24 @@ backend/
       claude.ts         # Claude Code detection
     agent/
       types.ts          # Agent 类型定义
+      claude-backend.ts # Claude CLI spawn + stream-json 解析
     daemon/
       register.ts       # daemon 注册逻辑
-      register-cli.ts   # CLI 入口
+      register-cli.ts   # daemon:register CLI 入口
+      client.ts         # Daemon HTTP Client
+      executor.ts       # 任务执行循环（claim → execute → report）
+      start-cli.ts      # daemon:start CLI 入口
   tests/
     claude-runtime.test.ts
     daemon-register.test.ts
     task-queue.test.ts
     task-message.test.ts
+    agent/
+      claude-backend.test.ts
+      claude-executor.test.ts
+    daemon/
+      client.test.ts
+      executor.test.ts
 ```
 
 ## Hard Rules
@@ -78,6 +88,7 @@ backend/
 - 分支命名：`issue-<N>`
 - PR 必须包含：中文摘要、测试命令与结果、`Closes #<N>`
 - Issue 关闭前，body 里的 Acceptance Criteria 必须全部 `- [x]`
+- **用户反馈 bug → 自动建 issue** — 交付后用户报告 bug 时，分析根因后用 `gh issue create` 建一个 bug issue（label: `bug`），包含：复现步骤、根因分析、修复方案、TC-ID。建完 issue 后按标准 TDD 流程修复。
 
 **验证**：`gh issue view $N` 检查 body 里的 `- [ ]` 是否全部变为 `- [x]`。有未勾选的 AC = 不允许关闭。
 
@@ -146,6 +157,7 @@ GitHub Issue body 中声明的每个 TC-ID，必须在 `backend/tests/` 的某�
 # 开发
 cd backend && bun run dev                # 启动 backend dev server
 cd backend && bun run daemon:register    # 手动触发 daemon 注册
+cd backend && bun run daemon:start       # 启动 daemon（探测→注册→执行循环）
 
 # 测试
 cd backend && bun test                   # 跑全部测试

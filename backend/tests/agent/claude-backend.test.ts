@@ -257,10 +257,10 @@ describe('TC-ERR-003: 过滤 CLAUDECODE_ 环境变量', () => {
       PATH: '/usr/bin',
       HOME: '/Users/test',
     })
-    expect(env).not.toContain('CLAUDECODE=should-be-removed')
-    expect(env).not.toContain('CLAUDECODE_SOMETHING=should-be-removed')
-    expect(env).not.toContain('CLAUDE_CODE_FOO=should-be-removed')
-    expect(env.some(e => e.startsWith('PATH='))).toBe(true)
-    expect(env.some(e => e.startsWith('HOME='))).toBe(true)
+    expect(env.CLAUDECODE).toBeUndefined()
+    expect(env.CLAUDECODE_SOMETHING).toBeUndefined()
+    expect(env.CLAUDE_CODE_FOO).toBeUndefined()
+    expect(env.PATH).toBeDefined()
+    expect(env.HOME).toBeDefined()
   })
 })
