@@ -11,6 +11,26 @@ Coding Teams 是一个多 Agent 协作调度平台。MVP 阶段只支持 Claude 
 
 参考架构：`docs/architecture.md`（基于 Multica 的成熟抽象，但不照搬其完整产品面）。
 
+### Multica 参考实现
+
+Multica（`/Users/mac/caii/agents/multica`）是一个成熟的多 Agent 协作调度平台，Coding Teams 从中提取核心设计模式但大幅简化。以下是 Multica 中与 Coding Teams 相关的关键文件，实现新功能时应先阅读对应文件理解设计意图：
+
+| Coding Teams 要实现的 | Multica 参考文件 | 说明 |
+|---|---|---|
+| Daemon 任务执行循环 | `server/internal/daemon/daemon.go` | `Run()` 主循环、`pollLoop()` 轮询、`handleTask()` 执行 |
+| Agent 后端接口 | `server/pkg/agent/agent.go` | `Backend` 接口定义（`Execute → Session`） |
+| Claude Code 后端 | `server/pkg/agent/claude.go` | spawn claude CLI、解析 stream-json 协议 |
+| 消息流式上报 | `server/internal/daemon/daemon.go` 的 `executeAndDrain()` | 500ms 批量 flush、idle watchdog |
+| Daemon HTTP 客户端 | `server/internal/daemon/client.go` | claim/start/heartbeat/messages/result API 调用 |
+| 类型定义 | `server/internal/daemon/types.go` | Task、Message、Result 等结构体 |
+| CLI 入口 | `server/cmd/multica/cmd_daemon.go` | `daemon start` 命令 |
+
+**Coding Teams 的简化原则**：
+- Multica 用 Go 实现，Coding Teams 用 TypeScript + Bun
+- Multica 支持 Claude/Codex/Gemini 多 provider，Coding Teams MVP 只支持 Claude Code
+- Multica 有 WebSocket 实时推送、session resume、idle watchdog 等，MVP 阶段用 HTTP 轮询替代
+- 核心设计模式（pull-based claim、stream-json 解析、消息批量上报）保持一致
+
 ## Architecture
 
 TypeScript monorepo，Bun runtime：
@@ -113,7 +133,8 @@ Coverage Matrix 的状态只有三种：
 ### 6. 协作文本默认中文
 
 - issue/PR/评论/harness-progress 默认中文叙述
-- 代码注释、变量名、commit message 的 subject 保留英文
+- 代码注释使用中文（帮助学习理解），变量名/函数名保留英文
+- commit message 的 subject 保留英文 conventional 前缀（`feat:`/`test:`/`fix:` 等），body 使用中文描述变更内容和设计意图
 - 技术词（TDD/PRD/API/CI/worktree 等）保留英文
 
 ## Commands
@@ -252,8 +273,8 @@ describe('TC-F-003: upsert existing Claude runtime', () => {
 - Conventional format：`feat(scope):`、`fix(scope):`、`refactor(scope):`、`docs`、`test(scope):`、`chore(scope):`
 - TDD Red commit 以 `test:` 开头
 - TDD Green commit 以 `feat:` 或 `fix:` 开头
-- 代码注释和 commit subject 保持英文
-- commit body 可用中文描述变更说明（可选）
+- commit subject 保留英文 conventional 前缀，body 使用中文描述变更内容
+- 代码注释使用中文（帮助学习理解），变量名/函数名保持英文
 
 ## .codex/skills/ Reference
 
