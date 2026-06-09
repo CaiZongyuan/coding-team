@@ -1,0 +1,35 @@
+appId: ai.coding-teams.desktop
+productName: Coding Teams
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.*'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+asarUnpack:
+  - resources/**
+mac:
+  target:
+    - target: dmg
+      arch:
+        - universal
+  artifactName: coding-teams-desktop-${version}-mac-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  executableName: coding-teams
+  artifactName: coding-teams-desktop-${version}-linux-${arch}.${ext}
+win:
+  target:
+    - nsis
+  artifactName: coding-teams-desktop-${version}-windows-${arch}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+publish:
+  provider: github
+  owner: CaiZongyuan
+  repo: coding-team
