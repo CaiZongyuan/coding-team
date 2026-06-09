@@ -1,0 +1,16 @@
+{
+  "name": "coding-teams",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0"
+  }
+}

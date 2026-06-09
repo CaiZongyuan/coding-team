@@ -1,9 +1,11 @@
 {
-  "name": "backend",
+  "name": "@coding-teams/api",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "daemon:register": "bun run src/daemon/register-cli.ts",
-    "daemon:start": "bun run src/daemon/start-cli.ts"
+    "daemon:start": "bun run src/daemon/start-cli.ts",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "hono": "^4.12.23"
