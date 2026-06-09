@@ -17,6 +17,7 @@ out/
 .vite/
 .tanstack/
 coverage/
+.turbo/
 
 # Logs
 *.log
@@ -35,7 +36,3 @@ bun-debug.log*
 .harness-active
 harness-tasks.json.bak
 harness-tasks.json.tmp
-
-# Local scaffold not yet owned by the root repository.
-# apps/web currently contains its own .git directory; handle it in a dedicated frontend issue.
-apps/web/

@@ -33,18 +33,19 @@ Multica（`/Users/mac/caii/agents/multica`）是一个成熟的多 Agent 协作�
 
 ## Architecture
 
-TypeScript monorepo，Bun runtime：
+TypeScript monorepo，pnpm workspace + Turborepo，Bun runtime（API server）：
 
-- `backend/` — Hono API server + daemon 逻辑（当前唯一实现目录）
+- `packages/api/` — Hono API server + daemon 逻辑（从 `backend/` 迁移）
+- `packages/tsconfig/` — 共享 TypeScript 配置（base/react/node）
 - `apps/web/` — TanStack Start Web UI（独立 git repo，暂不并入父仓库）
 - `docs/` — 系统级文档（架构、API 合同）
 - `.claude/skills/` — Claude Code 操作 skills
 - `.codex/skills/` — Codex 遗留 skills（harness 等）
 
-当前 `backend/` 内部结构：
+当前 `packages/api/` 内部结构：
 
 ```
-backend/
+packages/api/
   src/
     app.ts              # Hono 路由与 dashboard
     index.ts            # 入口
@@ -97,8 +98,8 @@ backend/
 PRD、验收标准、测试用例（TC-ID）全部写在 **GitHub Issue body** 中，不再产出本地文档文件。实现顺序：
 
 1. **GitHub Issue**：包含完整的 PRD + 验收标准 + TC-ID（用 `/create-issue` 或 `/product-requirements` 生成）
-2. `backend/tests/*.test.ts`（Red commit）— 每个 TC-ID 对应一个 `describe('TC-XXX: ...')`
-3. `backend/src/**/*.ts`（Green commit）
+2. `packages/api/tests/*.test.ts`（Red commit）— 每个 TC-ID 对应一个 `describe('TC-XXX: ...')`
+3. `packages/api/src/**/*.ts`（Green commit）
 
 **验证**：每个阶段独立 commit。git log 必须能看出先后顺序。Issue 关闭前 body 里的 Acceptance Criteria 必须全部 `- [x]`。
 
@@ -106,16 +107,16 @@ PRD、验收标准、测试用例（TC-ID）全部写在 **GitHub Issue body** �
 
 核心规则（精简版，参考 Multica）：
 
-1. **Red**：只写测试文件（`backend/tests/`），不改 `backend/src/`。提交。`bun test` 必须失败。
-2. **Green**：只改实现文件（`backend/src/`），不改测试文件。提交。`bun test` 必须通过。
+1. **Red**：只写测试文件（`packages/api/tests/`），不改 `packages/api/src/`。提交。`bun test` 必须失败。
+2. **Green**：只改实现文件（`packages/api/src/`），不改测试文件。提交。`bun test` 必须通过。
 3. **Refactor**：可选。重命名/提取/简化，不改测试断言语义。`bun test` 仍通过。
 
 **强制机制**：`.githooks/pre-commit` 检查：
 
 ```bash
 # 如果 staged 文件同时包含 tests/ 和 src/，拒绝提交
-if git diff --cached --name-only | grep -q '^backend/tests/' && \
-   git diff --cached --name-only | grep -q '^backend/src/'; then
+if git diff --cached --name-only | grep -q '^packages/api/tests/' && \
+   git diff --cached --name-only | grep -q '^packages/api/src/'; then
   echo "BLOCKED: tests/ 和 src/ 不能在同一个 commit 同时修改。"
   echo "TDD 要求：先 commit tests/（Red），再 commit src/（Green）。"
   exit 1
@@ -126,7 +127,7 @@ fi
 
 ### 4. 测试覆盖（Issue 中的 TC-ID = 契约，必须全部有对应 `it()`）
 
-GitHub Issue body 中声明的每个 TC-ID，必须在 `backend/tests/` 的某个 `.test.ts` 文件里有对应的测试。
+GitHub Issue body 中声明的每个 TC-ID，必须在 `packages/api/tests/` 的某个 `.test.ts` 文件里有对应的测试。
 
 | 状态 | 含义 | 要求 |
 |------|------|------|
@@ -155,19 +156,24 @@ GitHub Issue body 中声明的每个 TC-ID，必须在 `backend/tests/` 的某�
 
 ```bash
 # 开发
-cd backend && bun run dev                # 启动 backend dev server
-cd backend && bun run daemon:register    # 手动触发 daemon 注册
-cd backend && bun run daemon:start       # 启动 daemon（探测→注册→执行循环）
+cd packages/api && bun run dev                # 启动 API dev server
+cd packages/api && bun run daemon:register    # 手动触发 daemon 注册
+cd packages/api && bun run daemon:start       # 启动 daemon（探测→注册→执行循环）
 
 # 测试
-cd backend && bun test                   # 跑全部测试
-cd backend && bun test --watch           # watch 模式
+cd packages/api && bun test                   # 跑全部测试
+cd packages/api && bun test --watch           # watch 模式
 
 # 类型检查
-cd backend && bunx tsc --noEmit          # TypeScript 类型检查
+cd packages/api && bunx tsc --noEmit          # TypeScript 类型检查
 
 # 完整验证（PR/完成前必须跑）
-cd backend && bun test && bunx tsc --noEmit
+cd packages/api && bun test && bunx tsc --noEmit
+
+# Monorepo 级别
+turbo build                                   # 构建所有包
+turbo test                                    # 测试所有包
+turbo typecheck                               # 类型检查所有包
 
 # Harness
 python3 .codex/skills/harness/bin/harness.py --root . status
@@ -185,10 +191,10 @@ python3 .codex/skills/harness/bin/harness.py --root . complete <task-id>
 
 | 测试什么 | 测试文件在哪 | 环境 |
 |---------|-------------|------|
-| 纯逻辑（detector、store、payload 构建） | `backend/tests/providers/`、`backend/tests/store/` | 无 DOM，纯函数 |
-| API 路由（register、runtimes、validation） | `backend/tests/routes/` | Hono `app.request()` |
-| daemon 客户端（注册、fetch、CLI） | `backend/tests/daemon/` | mock fetch/detector |
-| dashboard 页面（HTML 渲染） | `backend/tests/routes/` | Hono `app.request()` |
+| 纯逻辑（detector、store、payload 构建） | `packages/api/tests/providers/`、`packages/api/tests/store/` | 无 DOM，纯函数 |
+| API 路由（register、runtimes、validation） | `packages/api/tests/routes/` | Hono `app.request()` |
+| daemon 客户端（注册、fetch、CLI） | `packages/api/tests/daemon/` | mock fetch/detector |
+| dashboard 页面（HTML 渲染） | `packages/api/tests/routes/` | Hono `app.request()` |
 
 **规则**：不要在同一个 `describe` 里混测不同层的逻辑。API 路由测试不测 detector 内部；detector 测试不测 HTTP 状态码。
 
@@ -219,7 +225,7 @@ describe('TC-F-003: upsert existing Claude runtime', () => {
 当前 API validation 是内联逻辑（`if (!hostname)`）。演进方向：
 
 - 每个 API endpoint 的 request/response 用 zod/valibot 定义 schema
-- Schema 文件放在 `backend/src/schemas/`
+- Schema 文件放在 `packages/api/src/schemas/`
 - 每个 schema 至少一个 malformed input 测试（缺失字段、错误类型、null 数组）
 - Daemon ↔ Server 通信天然跨版本，必须防御性解析
 
@@ -251,8 +257,8 @@ PRD、验收标准、测试用例（TC-ID）不再产出本地文件，全部存
 | 系统架构文档 | `docs/architecture.md` | 项目级别，不频繁变更 |
 | API 系统合同 | `docs/api/coding-teams.md` | 项目级别，不频繁变更 |
 | 学习文档 | `docs/learning/` | 按需创建 |
-| 自动化测试 | `backend/tests/*.test.ts` | TDD Red |
-| 实现 | `backend/src/**/*.ts` | TDD Green |
+| 自动化测试 | `packages/api/tests/*.test.ts` | TDD Red |
+| 实现 | `packages/api/src/**/*.ts` | TDD Green |
 
 **关键**：Issue body 中的每一个 TC-ID 都必须有对应的自动化测试。Issue 关闭前所有验收标准必须 `- [x]`。
 
@@ -263,8 +269,8 @@ PRD、验收标准、测试用例（TC-ID）不再产出本地文件，全部存
 | 角色 | 职责 | 允许改的文件 |
 |------|------|-------------|
 | `po` | 需求、Issue 内容 | GitHub Issue body（通过 `/create-issue`） |
-| `qa` | 测试代码 | `backend/tests/` |
-| `implementer` | 最小实现 | `backend/src/` |
+| `qa` | 测试代码 | `packages/api/tests/` |
+| `implementer` | 最小实现 | `packages/api/src/` |
 | `reviewer` | 审查，列问题清单 | 不改代码，只写评论 |
 | `verifier` | 跑验证，给放行/阻塞结论 | 不改代码，只跑命令 |
 
@@ -314,9 +320,12 @@ PRD、验收标准、测试用例（TC-ID）不再产出本地文件，全部存
 git config core.hooksPath .githooks
 chmod +x .githooks/* 2>/dev/null || true
 
-# 安装 backend 依赖
-cd backend && bun install
+# 安装 packages/api 依赖
+cd packages/api && bun install
 
 # 验证环境
-cd backend && bun test && bunx tsc --noEmit
+cd packages/api && bun test && bunx tsc --noEmit
+
+# 安装根 monorepo 依赖（如需 turbo）
+pnpm install
 ```
