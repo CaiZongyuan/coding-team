@@ -1,0 +1,20 @@
+{
+  "name": "@coding-teams/views",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@coding-teams/core": "file:../core",
+    "@coding-teams/ui": "file:../ui"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}
