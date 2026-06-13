@@ -6,12 +6,19 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@coding-teams/core": "file:../core",
     "@coding-teams/ui": "file:../ui"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "happy-dom": "^15.11.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@types/react": "^19.0.0",
