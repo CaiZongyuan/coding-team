@@ -5,7 +5,6 @@ import { DashboardPage } from './pages/dashboard'
 import { TasksPage } from './pages/tasks'
 import { TaskDetailPage } from './pages/task-detail'
 import { DaemonsPage } from './pages/daemons'
-import { AgentsPage } from './pages/agents'
 import { SettingsPage } from './pages/settings'
 import { useApiClient } from './lib/api-client'
 
@@ -53,7 +52,6 @@ function AppContent() {
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/tasks/:id" element={<TaskDetailPage />} />
         <Route path="/daemons" element={<DaemonsPage />} />
-        <Route path="/agents" element={<AgentsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

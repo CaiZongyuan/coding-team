@@ -19,5 +19,5 @@ export function DashboardPage() {
     onlineRuntimes: runtimes.filter((r) => r.status === 'online').length,
   }
 
-  return <DashboardOverview stats={stats} />
+  return <DashboardOverview stats={stats} runtimes={runtimes} />
 }

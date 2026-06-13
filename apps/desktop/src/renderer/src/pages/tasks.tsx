@@ -35,19 +35,24 @@ export function TasksPage() {
   }
 
   const tasks = q.data?.tasks ?? []
+  const inputClass =
+    'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20'
 
   return (
     <div className="space-y-4 p-6">
-      <h1 className="text-xl font-semibold">Tasks</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-zinc-900">Tasks</h1>
+        <span className="text-xs text-zinc-500">{tasks.length} 个任务</span>
+      </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>创建任务</CardTitle>
+        <CardHeader className="px-5 py-4">
+          <CardTitle className="text-sm">创建任务</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5 pb-5 pt-0">
           <div className="space-y-2">
             <input
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+              className={inputClass}
               placeholder="标题"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -56,14 +61,14 @@ export function TasksPage() {
               }}
             />
             <textarea
-              className="w-full resize-y rounded border border-zinc-300 px-3 py-2 text-sm"
+              className={`${inputClass} resize-y`}
               placeholder="描述（可选）"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
             />
             <Button onClick={handleCreate} disabled={!title.trim() || createM.isPending}>
-              {createM.isPending ? '创建中...' : '创建任务'}
+              {createM.isPending ? '创建中…' : '创建任务'}
             </Button>
             {createM.isError && (
               <div className="text-xs text-red-600">
@@ -75,10 +80,10 @@ export function TasksPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>任务列表（点击进入详情看实时消息）</CardTitle>
+        <CardHeader className="px-5 py-4">
+          <CardTitle className="text-sm">任务列表</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-5 pb-3 pt-0">
           <TaskList tasks={tasks} onTaskClick={(id) => navigate(`/tasks/${id}`)} />
         </CardContent>
       </Card>
