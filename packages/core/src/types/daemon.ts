@@ -50,3 +50,8 @@ export type Runtime = {
 export type DaemonListResponse = {
   daemons: Array<Daemon & { runtimes: Runtime[] }>
 }
+
+/** Runtime 列表响应（对应 GET /api/runtimes） */
+export type RuntimeListResponse = {
+  runtimes: Runtime[]
+}

@@ -7,7 +7,7 @@
 
 // API
 export { createApiClient, ApiRequestError, type ApiClient } from './api/client.js'
-export { createWSClient, type WSClient, type WSEventHandler } from './ws-client.js'
+export { createWSClient, type WSClient, type WSEventHandler } from './api/ws-client.js'
 
 // Types
 export type * from './types/index.js'
@@ -24,6 +24,9 @@ export { createCreateTaskMutation, createCancelTaskMutation } from './tasks/muta
 
 // Daemon queries
 export { daemonKeys, daemonListQuery } from './daemons/queries.js'
+
+// Runtime queries（对接 GET /api/runtimes）
+export { runtimeKeys, runtimeListQuery } from './runtimes/queries.js'
 
 // Agent queries
 export { agentKeys, agentListQuery } from './agents/queries.js'
