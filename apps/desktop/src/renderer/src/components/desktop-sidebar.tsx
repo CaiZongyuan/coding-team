@@ -8,7 +8,7 @@ export type DesktopSidebarProps = {
 const navItems: SidebarItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: '📊' },
   { label: 'Tasks', href: '/tasks', icon: '📋' },
-  { label: 'Daemons', href: '/daemons', icon: '🖥️' },
+  { label: 'Runtimes', href: '/daemons', icon: '🖥️' },
   { label: 'Agents', href: '/agents', icon: '🤖' },
   { label: 'Settings', href: '/settings', icon: '⚙️' },
 ]

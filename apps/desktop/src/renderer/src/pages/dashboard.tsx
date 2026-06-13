@@ -1,19 +1,23 @@
-import { useState, useEffect } from 'react'
-import { DashboardOverview, type DashboardStats } from '@coding-teams/views'
+import { useQuery } from '@tanstack/react-query'
+import { taskListQuery, runtimeListQuery } from '@coding-teams/core'
+import { DashboardOverview } from '@coding-teams/views'
+import { useApiClient } from '../lib/api-client'
 
 export function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalTasks: 0,
-    runningTasks: 0,
-    totalDaemons: 0,
-    onlineRuntimes: 0,
-  })
+  const { api } = useApiClient()
 
-  // MVP：从 API 获取数据
-  // 后续通过 TanStack Query 自动管理
-  useEffect(() => {
-    // TODO: 连接 API 获取实际数据
-  }, [])
+  const tasksQ = useQuery({ ...taskListQuery(api!), refetchInterval: 5000 })
+  const runtimesQ = useQuery({ ...runtimeListQuery(api!), refetchInterval: 10000 })
+
+  const tasks = tasksQ.data?.tasks ?? []
+  const runtimes = runtimesQ.data?.runtimes ?? []
+
+  const stats = {
+    totalTasks: tasks.length,
+    runningTasks: tasks.filter((t) => t.status === 'running').length,
+    totalDaemons: new Set(runtimes.map((r) => r.daemonId).filter(Boolean)).size,
+    onlineRuntimes: runtimes.filter((r) => r.status === 'online').length,
+  }
 
   return <DashboardOverview stats={stats} />
 }
