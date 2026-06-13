@@ -1,15 +1,12 @@
 /**
  * Electron Main Process 入口
  *
- * 参考 Multica apps/desktop/src/main/index.ts，但大幅简化：
- * - 单窗口，无多标签
- * - 无认证，本地使用
- * - Daemon 内嵌管理
+ * 外置架构：desktop 只连外部 packages/api server（默认 http://localhost:3000），
+ * 不 spawn daemon。daemon 由用户在 packages/api 目录手动启动。
  */
 
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { startDaemonManager, stopDaemonManager } from './daemon-manager'
 import { registerIpcHandlers } from './ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
@@ -59,7 +56,6 @@ if (!gotTheLock) {
 app.whenReady().then(() => {
   createWindow()
   registerIpcHandlers()
-  startDaemonManager(mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -69,16 +65,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  stopDaemonManager()
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
-
-app.on('before-quit', () => {
-  stopDaemonManager()
-})
-
-export function getMainWindow(): BrowserWindow | null {
-  return mainWindow
-}
