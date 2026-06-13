@@ -14,6 +14,14 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       outDir: 'dist/preload',
+      // sandbox:true 不支持 ESM import，必须输出 CommonJS。
+      // package.json "type":"module" 下需显式指定 format + .cjs 扩展名。
+      rollupOptions: {
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+        },
+      },
     },
   },
   renderer: {

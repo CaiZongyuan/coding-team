@@ -21,8 +21,8 @@ function createWindow() {
     titleBarStyle: 'hiddenInset', // macOS 自定义标题栏
     show: false,
     webPreferences: {
-      // package.json "type":"module" → electron-vite 把 preload 编译为 index.mjs
-      preload: join(__dirname, '../preload/index.mjs'),
+      // sandbox:true 不支持 ESM preload，故编译为 CommonJS（.cjs）
+      preload: join(__dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
