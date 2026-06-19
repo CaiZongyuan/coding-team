@@ -1,18 +1,13 @@
 /**
  * Agent 类型定义
+ *
+ * AgentProvider 的唯一定义在 ./daemon.ts（Runtime 和 Agent 共用）。
  */
+
+import type { AgentProvider } from './daemon.js'
 
 /** Agent 状态 */
 export type AgentStatus = 'idle' | 'working' | 'blocked' | 'error' | 'offline'
-
-/** Agent Provider 类型 */
-export type AgentProvider =
-  | 'claude'
-  | 'codex'
-  | 'openclaw'
-  | 'opencode'
-  | 'hermes'
-  | 'gemini'
 
 /** Agent 记录 */
 export type Agent = {

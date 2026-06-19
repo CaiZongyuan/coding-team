@@ -1,17 +1,14 @@
 /**
  * IPC Handlers
  *
- * 注册 main process 的 IPC 事件处理。
+ * 外置架构下只暴露 desktop 信息和 runtime config。
+ * daemon 生命周期控制已移除（由用户在 packages/api 手动管理）。
  */
 
 import { ipcMain, app, shell } from 'electron'
-import { startDaemon, stopDaemon, restartDaemon, getDaemonStatus } from './daemon-manager'
-import { getMainWindow } from './index'
 
 /** 注册所有 IPC handlers */
 export function registerIpcHandlers(): void {
-  // ─── desktopAPI ───
-
   ipcMain.handle('desktop:getAppInfo', () => ({
     version: app.getVersion(),
     platform: process.platform,
@@ -24,23 +21,5 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('desktop:openExternal', (_event, url: string) => {
     shell.openExternal(url)
-  })
-
-  // ─── daemonAPI ───
-
-  ipcMain.handle('daemon:start', (_event, serverUrl?: string) => {
-    startDaemon(serverUrl)
-  })
-
-  ipcMain.handle('daemon:stop', () => {
-    stopDaemon()
-  })
-
-  ipcMain.handle('daemon:restart', (_event, serverUrl?: string) => {
-    restartDaemon(serverUrl)
-  })
-
-  ipcMain.handle('daemon:getStatus', () => {
-    return getDaemonStatus()
   })
 }

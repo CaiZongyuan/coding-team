@@ -7,11 +7,11 @@ export type BadgeProps = {
 }
 
 const variantStyles = {
-  default: 'bg-zinc-100 text-zinc-800',
-  success: 'bg-green-100 text-green-800',
-  warning: 'bg-yellow-100 text-yellow-800',
-  destructive: 'bg-red-100 text-red-800',
-  outline: 'border border-zinc-300 text-zinc-800',
+  default: 'bg-brand-50 text-brand-700',
+  success: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20',
+  warning: 'bg-amber-50 text-amber-700 ring-1 ring-amber-600/20',
+  destructive: 'bg-red-50 text-red-700 ring-1 ring-red-600/20',
+  outline: 'border border-zinc-200 text-zinc-600',
 }
 
 export function Badge({ variant = 'default', children, className }: BadgeProps) {

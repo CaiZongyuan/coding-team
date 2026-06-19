@@ -28,12 +28,13 @@ export function taskListQuery(api: ApiClient, filters?: { status?: string }) {
   })
 }
 
-/** 任务详情 query */
+/** 任务详情 query（API 返回 { task }，这里解包为纯 task） */
 export function taskDetailQuery(api: ApiClient, taskId: string) {
   return queryOptions({
     queryKey: taskKeys.detail(taskId),
     queryFn: async () => {
-      return api.get<Task>(`/api/tasks/${taskId}`)
+      const res = await api.get<{ task: Task }>(`/api/tasks/${taskId}`)
+      return res.task
     },
   })
 }

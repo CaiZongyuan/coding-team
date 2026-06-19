@@ -6,22 +6,24 @@ import type { ApiClient } from '../api/client.js'
 import type { Task, CreateTaskRequest } from '../types/task.js'
 import { taskKeys } from './queries.js'
 
-/** 创建任务 mutation */
+/** 创建任务 mutation（API 返回 { task }，这里解包为纯 task） */
 export function createCreateTaskMutation(api: ApiClient) {
   return {
     mutationFn: async (input: CreateTaskRequest) => {
-      return api.post<Task>('/api/tasks', input)
+      const res = await api.post<{ task: Task }>('/api/tasks', input)
+      return res.task
     },
     /** 成功后 invalidation */
     onSuccess: undefined as (() => void) | undefined,
   }
 }
 
-/** 取消任务 mutation */
+/** 取消任务 mutation（API 返回 { task }，这里解包为纯 task） */
 export function createCancelTaskMutation(api: ApiClient) {
   return {
     mutationFn: async (taskId: string) => {
-      return api.post<Task>(`/api/tasks/${taskId}/cancel`)
+      const res = await api.post<{ task: Task }>(`/api/tasks/${taskId}/cancel`)
+      return res.task
     },
   }
 }

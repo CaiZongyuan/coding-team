@@ -10,10 +10,10 @@ export type ButtonProps = {
 }
 
 const variantStyles = {
-  default: 'bg-zinc-900 text-white hover:bg-zinc-800',
-  destructive: 'bg-red-600 text-white hover:bg-red-500',
-  outline: 'border border-zinc-300 bg-white hover:bg-zinc-50',
-  ghost: 'hover:bg-zinc-100',
+  default: 'bg-brand-600 text-white hover:bg-brand-500 shadow-sm',
+  destructive: 'bg-red-600 text-white hover:bg-red-500 shadow-sm',
+  outline: 'border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700',
+  ghost: 'text-zinc-600 hover:bg-zinc-100',
 }
 
 const sizeStyles = {
@@ -27,7 +27,7 @@ export function Button({ variant = 'default', size = 'md', children, className, 
     <button
       className={cn(
         'inline-flex items-center justify-center rounded-md font-medium transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40',
         'disabled:pointer-events-none disabled:opacity-50',
         variantStyles[variant],
         sizeStyles[size],

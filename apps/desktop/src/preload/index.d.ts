@@ -8,18 +8,8 @@ export interface DesktopAPI {
   openExternal(url: string): Promise<void>
 }
 
-export interface DaemonAPI {
-  start(serverUrl?: string): Promise<void>
-  stop(): Promise<void>
-  restart(serverUrl?: string): Promise<void>
-  getStatus(): Promise<string>
-  onStatusChange(callback: (status: string) => void): () => void
-  onLog(callback: (log: string) => void): () => void
-}
-
 declare global {
   interface Window {
     desktopAPI: DesktopAPI
-    daemonAPI: DaemonAPI
   }
 }

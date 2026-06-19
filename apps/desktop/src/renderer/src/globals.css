@@ -1,1 +1,23 @@
 @import "tailwindcss";
+
+/* 设计令牌：品牌色（参考 Multica 蓝色系，OKLCH 色彩空间）
+   生成 bg-brand-50/500/600、text-brand-* 等工具类 */
+@theme {
+  --color-brand-50: oklch(0.97 0.02 255);
+  --color-brand-100: oklch(0.93 0.04 255);
+  --color-brand-500: oklch(0.62 0.17 258);
+  --color-brand-600: oklch(0.52 0.17 258);
+  --color-brand-700: oklch(0.45 0.15 258);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
